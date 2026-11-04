@@ -21,6 +21,7 @@ export {
   type ViewPoint,
   type ViewShape,
 } from "./orthographic.ts";
+export { DEFAULT_CAMERA, projectPerspective, type PerspectiveCamera, type PerspectiveProjection } from "./perspective.ts";
 export { parseDwgUnderlay } from "./dwg.ts";
 export { importMvrLights, parseMvrLights, type MvrLight } from "./mvr.ts";
 export { localMatrix, transformPoint } from "./transform.ts";
