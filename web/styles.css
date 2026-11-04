@@ -74,7 +74,8 @@ input {
   cursor: pointer;
 }
 
-#import-dwg {
+#import-dwg,
+#import-mvr {
   padding: 6px 10px;
   border: 1px solid var(--line);
   border-radius: 6px;
@@ -82,13 +83,22 @@ input {
   cursor: pointer;
 }
 
+.import,
+.import-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
 .import {
   display: grid;
-  gap: 4px;
+  justify-items: start;
 }
 
 #import-status,
 #underlay-status,
+#mvr-status,
 #import-error {
   margin: 0;
 }

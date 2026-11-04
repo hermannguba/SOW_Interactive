@@ -22,6 +22,7 @@ export {
   type ViewShape,
 } from "./orthographic.ts";
 export { parseDwgUnderlay } from "./dwg.ts";
+export { importMvrLights, parseMvrLights, type MvrLight } from "./mvr.ts";
 export { localMatrix, transformPoint } from "./transform.ts";
 export {
   DISCIPLINES,

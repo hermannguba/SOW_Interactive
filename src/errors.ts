@@ -7,6 +7,7 @@ export type SceneErrorCode =
   | "invalid-address"
   | "invalid-snapshot"
   | "invalid-dwg"
+  | "invalid-mvr"
   | "invalid-query"
   | "duplicate-id"
   | "duplicate-date"

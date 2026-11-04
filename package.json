@@ -20,6 +20,7 @@
     "vite": "^6.3.5"
   },
   "dependencies": {
-    "@node-projects/acad-ts": "^3.7.0"
+    "@node-projects/acad-ts": "^3.7.0",
+    "fflate": "^0.8.3"
   }
 }

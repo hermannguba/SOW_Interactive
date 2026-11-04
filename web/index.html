@@ -22,9 +22,14 @@
         <button type="button" data-view="side">Вид сбоку</button>
       </div>
       <div class="import">
-        <button type="button" id="import-dwg">Импорт DWG</button>
+        <div class="import-actions">
+          <button type="button" id="import-dwg">Импорт DWG</button>
+          <button type="button" id="import-mvr">Импорт MVR</button>
+        </div>
         <input id="dwg-file" type="file" accept=".dwg,application/acad" hidden />
+        <input id="mvr-file" type="file" accept=".mvr,application/zip" hidden />
         <p id="underlay-status"></p>
+        <p id="mvr-status"></p>
         <p id="import-error" class="error" role="alert"></p>
       </div>
     </header>
