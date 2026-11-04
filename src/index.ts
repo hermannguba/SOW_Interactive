@@ -12,6 +12,15 @@ export {
   worldMatrix,
   worldPosition,
 } from "./scene-graph.ts";
+export {
+  projectOrthographic,
+  type OrthographicMark,
+  type OrthographicProjection,
+  type OrthographicView,
+  type ViewAxes,
+  type ViewPoint,
+  type ViewShape,
+} from "./orthographic.ts";
 export { localMatrix, transformPoint } from "./transform.ts";
 export {
   DISCIPLINES,
