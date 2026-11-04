@@ -81,6 +81,7 @@ export function buildSceneGraph(
     catalogType: null,
     address: null,
     shape: null,
+    extent: null,
     sourceId: null,
   });
 
@@ -97,6 +98,7 @@ export function buildSceneGraph(
     catalogType: null,
     address: null,
     shape: null,
+    extent: null,
     sourceId: venue.id,
   });
 
@@ -113,6 +115,7 @@ export function buildSceneGraph(
     catalogType: null,
     address: null,
     shape: null,
+    extent: null,
     sourceId: plot.id,
   });
 
@@ -194,6 +197,7 @@ function underlayNode(
     catalogType: null,
     address: null,
     shape: { kind: "polyline", points },
+    extent: null,
     sourceId: null,
   });
 }
@@ -212,6 +216,7 @@ function geometryNode(geometry: Geometry, id: string, parentId: string): SceneNo
     catalogType: null,
     address: null,
     shape: geometry.shape,
+    extent: null,
     sourceId: geometry.id,
   });
 }
@@ -230,6 +235,7 @@ function portalNode(portal: SoundPortal, id: string, parentId: string): SceneNod
     catalogType: portal.type,
     address: null,
     shape: null,
+    extent: null,
     sourceId: portal.id,
   });
 }
@@ -253,6 +259,12 @@ function fixtureNode(
     catalogType: fixture.type,
     address: fixture.address,
     shape: null,
+    extent: fixture.extent
+      ? {
+          min: { ...fixture.extent.min },
+          max: { ...fixture.extent.max },
+        }
+      : null,
     sourceId: fixture.id,
   });
 }
@@ -270,6 +282,12 @@ function freezeNode(node: SceneNode): SceneNode {
     }),
     address,
     shape: freezeShape(node.shape),
+    extent: node.extent
+      ? Object.freeze({
+          min: Object.freeze({ ...node.extent.min }),
+          max: Object.freeze({ ...node.extent.max }),
+        })
+      : null,
   });
 }
 

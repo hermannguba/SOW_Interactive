@@ -6,6 +6,7 @@ import type {
   AddFixtureInput,
   Discipline,
   DmxAddress,
+  Extent,
   Fixture,
   FixtureQuery,
   Geometry,
@@ -337,6 +338,9 @@ export class Project {
       parentId: input.parentId ?? null,
       transform: input.transform,
       address: input.discipline === "light" ? input.address : null,
+      catalogId: input.discipline === "light" ? (input.catalogId ?? null) : null,
+      mode: input.discipline === "light" ? (input.mode ?? null) : null,
+      extent: input.discipline === "light" ? (input.extent ?? null) : null,
     });
     return id;
   }
@@ -349,6 +353,15 @@ export class Project {
   setFixtureType(plotId: string, fixtureId: string, type: string): void {
     const fixture = this.fixtureOrThrow(plotId, fixtureId);
     this.replaceFixture(plotId, { ...fixture, type: assertName(type) });
+  }
+
+  /** Меняет имя режима GDTF. Футпринт остаётся в каталоге, габарит не меняется. */
+  setFixtureMode(plotId: string, fixtureId: string, mode: string): void {
+    const fixture = this.fixtureOrThrow(plotId, fixtureId);
+    if (fixture.catalogId === null) {
+      throw new SceneError("invalid-catalog", "Режим есть только у прибора из библиотеки");
+    }
+    this.replaceFixture(plotId, { ...fixture, mode: assertName(mode) });
   }
 
   setFixtureTransform(plotId: string, fixtureId: string, transform: Transform): void {
@@ -552,6 +565,7 @@ export class Project {
       }
     }
     const address = this.addressFor(fixture);
+    const catalog = catalogOf(fixture);
     const stored: Fixture = {
       id,
       name: assertName(fixture.name),
@@ -562,6 +576,9 @@ export class Project {
       parentId,
       transform: copyTransform(fixture.transform),
       address,
+      catalogId: catalog.catalogId,
+      mode: catalog.mode,
+      extent: catalog.extent,
     };
     if (address) this.assertAddressFree(plot, id, address);
     this.claim(id);
@@ -741,7 +758,42 @@ function copyPortal(portal: SoundPortal): SoundPortal {
   };
 }
 
+function catalogOf(fixture: Fixture): {
+  catalogId: string | null;
+  mode: string | null;
+  extent: Extent | null;
+} {
+  const catalogId = fixture.catalogId?.trim() ?? "";
+  const mode = fixture.mode?.trim() ?? "";
+  const extent = fixture.extent;
+  if (fixture.discipline !== "light") {
+    if (catalogId !== "" || mode !== "" || extent) {
+      throw new SceneError("catalog-forbidden", "Библиотека GDTF задаётся только у прибора света");
+    }
+    return { catalogId: null, mode: null, extent: null };
+  }
+  if (catalogId === "" && mode === "" && !extent) {
+    return { catalogId: null, mode: null, extent: null };
+  }
+  if (catalogId === "" || mode === "") {
+    throw new SceneError("invalid-catalog", "У прибора из библиотеки нужны тип и режим");
+  }
+  return {
+    catalogId,
+    mode,
+    extent: extent ? copyExtent(extent) : null,
+  };
+}
+
+function copyExtent(extent: Extent): Extent {
+  return {
+    min: copyVec3(extent.min),
+    max: copyVec3(extent.max),
+  };
+}
+
 function copyFixture(fixture: Fixture): Fixture {
+  const catalog = catalogOf(fixture);
   return {
     id: fixture.id,
     name: fixture.name,
@@ -752,5 +804,8 @@ function copyFixture(fixture: Fixture): Fixture {
     parentId: fixture.parentId,
     transform: copyTransform(fixture.transform),
     address: fixture.address ? { ...fixture.address } : null,
+    catalogId: catalog.catalogId,
+    mode: catalog.mode,
+    extent: catalog.extent,
   };
 }

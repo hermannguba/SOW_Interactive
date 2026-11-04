@@ -36,6 +36,12 @@ export interface DmxAddress {
   readonly address: number;
 }
 
+/** Габарит относительно точки подвеса, в метрах. Ноль — центр опорной плиты. */
+export interface Extent {
+  readonly min: Vec3;
+  readonly max: Vec3;
+}
+
 export type GeometryShape =
   | {
       readonly kind: "box";
@@ -79,6 +85,12 @@ export interface Fixture {
   readonly parentId: string | null;
   readonly transform: Transform;
   readonly address: DmxAddress | null;
+  /** FixtureTypeID из GDTF. Пусто у прибора не из библиотеки. */
+  readonly catalogId: string | null;
+  /** Имя DMXMode. Пусто вместе с catalogId. */
+  readonly mode: string | null;
+  /** Копия габарита из каталога, чтобы вид рисовал корпус без файла. */
+  readonly extent: Extent | null;
 }
 
 export interface PlotSnapshot {
@@ -139,6 +151,9 @@ export type AddFixtureInput =
       readonly discipline: "light";
       readonly kind: "light-fixture";
       readonly address: DmxAddress;
+      readonly catalogId?: string | null;
+      readonly mode?: string | null;
+      readonly extent?: Extent | null;
     })
   | (FixtureDraftBase & {
       readonly discipline: "sound";
@@ -208,6 +223,7 @@ export interface SceneNode {
   readonly catalogType: string | null;
   readonly address: DmxAddress | null;
   readonly shape: GeometryShape | null;
+  readonly extent: Extent | null;
   readonly sourceId: string | null;
 }
 

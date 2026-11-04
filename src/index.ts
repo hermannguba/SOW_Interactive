@@ -24,6 +24,7 @@ export {
 export { DEFAULT_CAMERA, projectPerspective, type PerspectiveCamera, type PerspectiveProjection } from "./perspective.ts";
 export { parseDwgUnderlay } from "./dwg.ts";
 export { importMvrLights, parseMvrLights, type MvrLight } from "./mvr.ts";
+export { parseGdtf, type GdtfBreak, type GdtfChannel, type GdtfFixture, type GdtfMode } from "./gdtf.ts";
 export { localMatrix, transformPoint } from "./transform.ts";
 export {
   DISCIPLINES,
@@ -32,6 +33,7 @@ export {
   type AddFixtureInput,
   type Discipline,
   type DmxAddress,
+  type Extent,
   type Fixture,
   type FixtureKind,
   type FixtureQuery,

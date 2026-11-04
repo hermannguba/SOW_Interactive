@@ -1,7 +1,7 @@
 import { SceneError } from "./errors.ts";
 import { filterScene, worldMatrix } from "./scene-graph.ts";
 import { transformPoint, translationOf } from "./transform.ts";
-import type { Mat4, SceneGraph, SceneNode, SceneQuery, Vec3 } from "./types.ts";
+import type { Extent, Mat4, SceneGraph, SceneNode, SceneQuery, Vec3 } from "./types.ts";
 import type { OrthographicMark, ViewPoint, ViewShape } from "./orthographic.ts";
 
 /**
@@ -63,8 +63,9 @@ function projectNode(graph: SceneGraph, node: SceneNode, camera: PerspectiveCame
     discipline: node.discipline,
     layerId: node.layerId,
     permanence: node.permanence,
-    shape:
-      node.kind === "geometry" || node.kind === "underlay"
+    shape: node.extent
+      ? projectExtent(matrix, node.extent, camera)
+      : node.kind === "geometry" || node.kind === "underlay"
         ? projectOutline(matrix, node, camera)
         : {
             kind: "point",
@@ -132,6 +133,28 @@ function assertCamera(camera: PerspectiveCamera): void {
   if (numbers.some((value) => !Number.isFinite(value)) || camera.distance <= 0 || camera.focal <= 0) {
     throw new SceneError("invalid-query", "Камера 3D задана неверно");
   }
+}
+
+function projectExtent(matrix: Mat4, extent: Extent, camera: PerspectiveCamera): ViewShape {
+  const corners = extentCorners(extent).map((corner) => toScreen(transformPoint(matrix, corner), camera));
+  const hull = convexHull(corners);
+  if (hull.length >= 3) return Object.freeze({ kind: "polygon", points: freezePoints(hull) });
+  if (hull.length >= 2) return Object.freeze({ kind: "polyline", points: freezePoints(hull) });
+  return Object.freeze({
+    kind: "point",
+    at: freezePoint(hull[0] ?? toScreen(translationOf(matrix), camera)),
+    heading: freezePoint({ x: 0, y: 0 }),
+  });
+}
+
+function extentCorners(extent: Extent): readonly Vec3[] {
+  const corners: Vec3[] = [];
+  for (const x of [extent.min.x, extent.max.x]) {
+    for (const y of [extent.min.y, extent.max.y]) {
+      for (const z of [extent.min.z, extent.max.z]) corners.push({ x, y, z });
+    }
+  }
+  return corners;
 }
 
 function boxCorners(width: number, depth: number, height: number): readonly Vec3[] {

@@ -3,6 +3,7 @@ import { filterScene, worldMatrix } from "./scene-graph.ts";
 import { transformPoint, translationOf } from "./transform.ts";
 import type {
   Discipline,
+  Extent,
   Mat4,
   Permanence,
   SceneGraph,
@@ -92,8 +93,9 @@ function projectNode(
     discipline: node.discipline,
     layerId: node.layerId,
     permanence: node.permanence,
-    shape:
-      node.kind === "geometry" || node.kind === "underlay"
+    shape: node.extent
+      ? projectExtent(matrix, node.extent, view)
+      : node.kind === "geometry" || node.kind === "underlay"
         ? projectOutline(matrix, node, view)
         : {
             kind: "point",
@@ -126,6 +128,29 @@ function projectOutline(matrix: Mat4, node: SceneNode, view: OrthographicView): 
     return Object.freeze({ kind: "polygon", points: freezePoints(hull) });
   }
   return Object.freeze({ kind: "polyline", points: freezePoints(hull) });
+}
+
+function projectExtent(matrix: Mat4, extent: Extent, view: OrthographicView): ViewShape {
+  const corners = extentCorners(extent).map((corner) => toView(view, transformPoint(matrix, corner)));
+  const hull = convexHull(corners);
+  if (hull.length >= 3) return Object.freeze({ kind: "polygon", points: freezePoints(hull) });
+  if (hull.length >= 2) return Object.freeze({ kind: "polyline", points: freezePoints(hull) });
+  const only = hull[0];
+  return Object.freeze({
+    kind: "point",
+    at: freezePoint(only ?? toView(view, translationOf(matrix))),
+    heading: freezePoint(only ? { x: 0, y: 0 } : headingOf(view, matrix)),
+  });
+}
+
+function extentCorners(extent: Extent): readonly Vec3[] {
+  const corners: Vec3[] = [];
+  for (const x of [extent.min.x, extent.max.x]) {
+    for (const y of [extent.min.y, extent.max.y]) {
+      for (const z of [extent.min.z, extent.max.z]) corners.push({ x, y, z });
+    }
+  }
+  return corners;
 }
 
 function boxCorners(width: number, depth: number, height: number): readonly Vec3[] {
