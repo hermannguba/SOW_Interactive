@@ -73,7 +73,7 @@ for (const button of document.querySelectorAll<HTMLButtonElement>("[data-view]")
 
 venueSelect.addEventListener("change", () => {
   venueId = venueSelect.value;
-  const nextPlot = project.listPlots(venueId)[0];
+  const nextPlot = plotsOf(venueId)[0];
   if (!nextPlot) return;
   plotId = nextPlot.id;
   selected = null;
@@ -389,9 +389,13 @@ function fixtureCard(fixture: Fixture): HTMLElement {
 function fillDates(): void {
   fillSelect(
     dateSelect,
-    project.listPlots(venueId).map((plot) => ({ value: plot.id, label: plot.date })),
+    plotsOf(venueId).map((plot) => ({ value: plot.id, label: plot.date })),
     plotId,
   );
+}
+
+function plotsOf(id: string) {
+  return [...project.listPlots(id)].sort((left, right) => left.date.localeCompare(right.date));
 }
 
 function fillSelect(

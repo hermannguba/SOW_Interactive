@@ -31,8 +31,8 @@ test("демо-зал хранит портал, геометрия видна �
   assert.equal(demo.project.name, "Демо");
   assert.equal(demo.project.listVenues()[0]?.name, "Главный зал");
   assert.equal(demo.project.listPlots(demo.venueId)[0]?.date, "2026-06-01");
-  assert.equal(demo.project.listFixtures(demo.plotId).length, 0);
-  assert.equal(demo.project.listSoundPortals(demo.venueId).length, 1);
+  assert.equal(demo.project.listFixtures(demo.plotId).length, 1);
+  assert.equal(demo.project.listSoundPortals(demo.venueId).length, 2);
   const portal = demo.project.listSoundPortals(demo.venueId)[0];
   assert.ok(portal);
   assert.notEqual(portal.transform.position.y, portal.transform.position.z);
