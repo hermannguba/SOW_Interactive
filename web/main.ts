@@ -1,4 +1,4 @@
-import { SceneError, parseDwgUnderlay, projectOrthographic, type Discipline, type Fixture, type OrthographicMark, type OrthographicView, type SoundPortal } from "../src/index.ts";
+import { SceneError, importMvrLights, parseDwgUnderlay, projectOrthographic, type Discipline, type Fixture, type OrthographicMark, type OrthographicView, type SoundPortal } from "../src/index.ts";
 import { createDemo } from "./demo.ts";
 import { libraryFor, roleLabel, type LibraryItem } from "./library.ts";
 import {
@@ -20,6 +20,7 @@ let discipline: Discipline = "light";
 let view: OrthographicView = "top";
 let armed: LibraryItem | null = null;
 let importError = "";
+let mvrStatus = "";
 let selected: { kind: "fixture"; id: string } | { kind: "portal"; id: string } | null = null;
 let marks: readonly OrthographicMark[] = [];
 
@@ -31,8 +32,11 @@ const hint = element<HTMLElement>("hint");
 const card = element<HTMLElement>("card");
 const plot = element<SVGSVGElement>("plot");
 const importButton = element<HTMLButtonElement>("import-dwg");
+const mvrButton = element<HTMLButtonElement>("import-mvr");
 const dwgFile = element<HTMLInputElement>("dwg-file");
+const mvrFile = element<HTMLInputElement>("mvr-file");
 const underlayStatus = element<HTMLElement>("underlay-status");
+const mvrStatusNode = element<HTMLElement>("mvr-status");
 const importAlert = element<HTMLElement>("import-error");
 
 const world = document.createElementNS("http://www.w3.org/2000/svg", "g");
@@ -84,6 +88,7 @@ venueSelect.addEventListener("change", () => {
   selected = null;
   armed = null;
   importError = "";
+  mvrStatus = "";
   fillDates();
   render();
 });
@@ -92,6 +97,8 @@ dateSelect.addEventListener("change", () => {
   plotId = dateSelect.value;
   selected = null;
   armed = null;
+  importError = "";
+  mvrStatus = "";
   render();
 });
 
@@ -105,6 +112,18 @@ dwgFile.addEventListener("change", () => {
   if (!file) return;
   const targetVenue = venueId;
   void readUnderlay(file, targetVenue);
+});
+
+mvrButton.addEventListener("click", () => {
+  mvrFile.click();
+});
+
+mvrFile.addEventListener("change", () => {
+  const file = mvrFile.files?.[0];
+  mvrFile.value = "";
+  if (!file) return;
+  const targetPlot = plotId;
+  void readMvr(file, targetPlot);
 });
 
 plot.addEventListener("pointerdown", (event) => {
@@ -160,6 +179,19 @@ function place(item: LibraryItem, point: { x: number; y: number }): void {
   render();
 }
 
+async function readMvr(file: File, targetPlot: string): Promise<void> {
+  try {
+    const added = importMvrLights(project, targetPlot, new Uint8Array(await file.arrayBuffer()));
+    if (targetPlot === plotId) {
+      importError = "";
+      mvrStatus = `В плот добавлено приборов: ${added.length}`;
+    }
+  } catch (caught) {
+    if (targetPlot === plotId) importError = messageOf(caught);
+  }
+  render();
+}
+
 async function readUnderlay(file: File, targetVenue: string): Promise<void> {
   try {
     const underlay = parseDwgUnderlay(new Uint8Array(await file.arrayBuffer()), file.name);
@@ -207,6 +239,7 @@ function renderLibrary(): void {
 function renderUnderlay(): void {
   const underlay = project.underlay(venueId);
   underlayStatus.textContent = underlay ? `Подложка: ${underlay.fileName}` : "Подложка не загружена";
+  mvrStatusNode.textContent = mvrStatus;
   importAlert.textContent = importError;
 }
 
