@@ -21,6 +21,7 @@ export {
   type ViewPoint,
   type ViewShape,
 } from "./orthographic.ts";
+export { parseDwgUnderlay } from "./dwg.ts";
 export { localMatrix, transformPoint } from "./transform.ts";
 export {
   DISCIPLINES,
@@ -48,6 +49,8 @@ export {
   type SceneQuery,
   type SoundPortal,
   type Transform,
+  type UnderlayStroke,
+  type VenueUnderlay,
   type Vec3,
   type VenueSnapshot,
 } from "./types.ts";

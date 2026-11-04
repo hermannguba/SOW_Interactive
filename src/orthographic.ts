@@ -93,8 +93,8 @@ function projectNode(
     layerId: node.layerId,
     permanence: node.permanence,
     shape:
-      node.kind === "geometry"
-        ? projectGeometry(matrix, node, view)
+      node.kind === "geometry" || node.kind === "underlay"
+        ? projectOutline(matrix, node, view)
         : {
             kind: "point",
             at: freezePoint(toView(view, translationOf(matrix))),
@@ -104,10 +104,11 @@ function projectNode(
   return Object.freeze(mark);
 }
 
-function projectGeometry(matrix: Mat4, node: SceneNode, view: OrthographicView): ViewShape {
+function projectOutline(matrix: Mat4, node: SceneNode, view: OrthographicView): ViewShape {
   const shape = node.shape;
   if (shape === null) {
-    throw new SceneError("invalid-shape", `У геометрии «${node.name}» нет формы`);
+    const kind = node.kind === "underlay" ? "подложки" : "геометрии";
+    throw new SceneError("invalid-shape", `У ${kind} «${node.name}» нет формы`);
   }
   if (shape.kind === "polyline") {
     return Object.freeze({

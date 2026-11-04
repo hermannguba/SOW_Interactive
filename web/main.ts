@@ -1,4 +1,4 @@
-import { SceneError, projectOrthographic, type Discipline, type Fixture, type OrthographicMark, type OrthographicView, type SoundPortal } from "../src/index.ts";
+import { SceneError, parseDwgUnderlay, projectOrthographic, type Discipline, type Fixture, type OrthographicMark, type OrthographicView, type SoundPortal } from "../src/index.ts";
 import { createDemo } from "./demo.ts";
 import { libraryFor, roleLabel, type LibraryItem } from "./library.ts";
 import {
@@ -19,6 +19,7 @@ let plotId = demo.plotId;
 let discipline: Discipline = "light";
 let view: OrthographicView = "top";
 let armed: LibraryItem | null = null;
+let importError = "";
 let selected: { kind: "fixture"; id: string } | { kind: "portal"; id: string } | null = null;
 let marks: readonly OrthographicMark[] = [];
 
@@ -29,6 +30,10 @@ const library = element<HTMLElement>("library");
 const hint = element<HTMLElement>("hint");
 const card = element<HTMLElement>("card");
 const plot = element<SVGSVGElement>("plot");
+const importButton = element<HTMLButtonElement>("import-dwg");
+const dwgFile = element<HTMLInputElement>("dwg-file");
+const underlayStatus = element<HTMLElement>("underlay-status");
+const importAlert = element<HTMLElement>("import-error");
 
 const world = document.createElementNS("http://www.w3.org/2000/svg", "g");
 world.setAttribute("transform", "scale(1,-1)");
@@ -78,6 +83,7 @@ venueSelect.addEventListener("change", () => {
   plotId = nextPlot.id;
   selected = null;
   armed = null;
+  importError = "";
   fillDates();
   render();
 });
@@ -87,6 +93,18 @@ dateSelect.addEventListener("change", () => {
   selected = null;
   armed = null;
   render();
+});
+
+importButton.addEventListener("click", () => {
+  dwgFile.click();
+});
+
+dwgFile.addEventListener("change", () => {
+  const file = dwgFile.files?.[0];
+  dwgFile.value = "";
+  if (!file) return;
+  const targetVenue = venueId;
+  void readUnderlay(file, targetVenue);
 });
 
 plot.addEventListener("pointerdown", (event) => {
@@ -142,6 +160,17 @@ function place(item: LibraryItem, point: { x: number; y: number }): void {
   render();
 }
 
+async function readUnderlay(file: File, targetVenue: string): Promise<void> {
+  try {
+    const underlay = parseDwgUnderlay(new Uint8Array(await file.arrayBuffer()), file.name);
+    project.setUnderlay(targetVenue, underlay);
+    if (targetVenue === venueId) importError = "";
+  } catch (caught) {
+    if (targetVenue === venueId) importError = messageOf(caught);
+  }
+  render();
+}
+
 function render(): void {
   document.body.dataset.placing = armed ? "true" : "false";
   for (const button of document.querySelectorAll<HTMLButtonElement>("[data-discipline]")) {
@@ -151,6 +180,7 @@ function render(): void {
     button.setAttribute("aria-pressed", String(button.dataset.view === view));
   }
   renderLibrary();
+  renderUnderlay();
   renderPlot();
   renderCard();
   hint.textContent = armed
@@ -174,6 +204,12 @@ function renderLibrary(): void {
   }
 }
 
+function renderUnderlay(): void {
+  const underlay = project.underlay(venueId);
+  underlayStatus.textContent = underlay ? `Подложка: ${underlay.fileName}` : "Подложка не загружена";
+  importAlert.textContent = importError;
+}
+
 function renderPlot(): void {
   const projection = projectOrthographic(project.sceneGraph(venueId, plotId), view, { discipline });
   marks = projection.marks;
@@ -191,11 +227,12 @@ function drawOutline(mark: OrthographicMark): SVGElement {
   if (shape.kind === "point") throw new Error("контур не точка");
   const element = svg(shape.kind === "polygon" ? "polygon" : "polyline");
   element.setAttribute("points", shape.points.map((point) => `${point.x},${point.y}`).join(" "));
-  element.setAttribute("class", "geometry");
-  element.setAttribute("data-kind", "geometry");
-  element.setAttribute("fill", shape.kind === "polygon" ? "rgba(244,241,234,0.08)" : "none");
-  element.setAttribute("stroke", "#c8c2b4");
-  element.setAttribute("stroke-width", "0.08");
+  const underlay = mark.nodeKind === "underlay";
+  element.setAttribute("class", underlay ? "underlay" : "geometry");
+  element.setAttribute("data-kind", underlay ? "underlay" : "geometry");
+  element.setAttribute("fill", !underlay && shape.kind === "polygon" ? "rgba(244,241,234,0.08)" : "none");
+  element.setAttribute("stroke", underlay ? "#9aa7b8" : "#c8c2b4");
+  element.setAttribute("stroke-width", underlay ? "0.06" : "0.08");
   return element;
 }
 
