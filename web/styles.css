@@ -163,6 +163,7 @@ main {
 }
 
 body[data-placing="true"] #plot { cursor: crosshair; }
+body[data-view="3d"] #plot { cursor: grab; }
 
 .card-fields {
   display: grid;

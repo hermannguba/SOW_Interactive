@@ -1,4 +1,4 @@
-import { SceneError, importMvrLights, parseDwgUnderlay, projectOrthographic, type Discipline, type Fixture, type OrthographicMark, type OrthographicView, type SoundPortal } from "../src/index.ts";
+import { DEFAULT_CAMERA, SceneError, importMvrLights, parseDwgUnderlay, projectOrthographic, projectPerspective, type Discipline, type Fixture, type OrthographicMark, type OrthographicView, type SoundPortal } from "../src/index.ts";
 import { createDemo } from "./demo.ts";
 import { libraryFor, roleLabel, type LibraryItem } from "./library.ts";
 import {
@@ -14,10 +14,22 @@ import {
 const demo = createDemo();
 const { project } = demo;
 
+type SceneView = OrthographicView | "3d";
+
 let venueId = demo.venueId;
 let plotId = demo.plotId;
 let discipline: Discipline = "light";
-let view: OrthographicView = "top";
+let view: SceneView = "top";
+let yaw = DEFAULT_CAMERA.yaw;
+let pitch = DEFAULT_CAMERA.pitch;
+let orbit: {
+  pointerId: number;
+  x: number;
+  y: number;
+  yaw: number;
+  pitch: number;
+  moved: boolean;
+} | null = null;
 let armed: LibraryItem | null = null;
 let importError = "";
 let mvrStatus = "";
@@ -74,8 +86,11 @@ for (const button of document.querySelectorAll<HTMLButtonElement>("[data-discipl
 for (const button of document.querySelectorAll<HTMLButtonElement>("[data-view]")) {
   button.addEventListener("click", () => {
     const next = button.dataset.view;
-    if (next !== "top" && next !== "side") return;
+    if (next !== "top" && next !== "side" && next !== "3d") return;
+    if (next === view) return;
     view = next;
+    orbit = null;
+    if (view === "3d") armed = null;
     render();
   });
 }
@@ -128,11 +143,53 @@ mvrFile.addEventListener("change", () => {
 
 plot.addEventListener("pointerdown", (event) => {
   event.preventDefault();
+  if (view === "3d") {
+    orbit = {
+      pointerId: event.pointerId,
+      x: event.clientX,
+      y: event.clientY,
+      yaw,
+      pitch,
+      moved: false,
+    };
+    plot.setPointerCapture(event.pointerId);
+    return;
+  }
   const point = clientToView(plot, event);
   if (armed) {
     place(armed, point);
     return;
   }
+  selectAt(point);
+});
+
+plot.addEventListener("pointermove", (event) => {
+  if (!orbit || orbit.pointerId !== event.pointerId || view !== "3d") return;
+  const dx = event.clientX - orbit.x;
+  const dy = event.clientY - orbit.y;
+  if (!orbit.moved && Math.hypot(dx, dy) <= 3) return;
+  orbit.moved = true;
+  yaw = orbit.yaw + dx * 0.35;
+  pitch = Math.min(80, Math.max(-80, orbit.pitch - dy * 0.25));
+  render();
+});
+
+plot.addEventListener("pointerup", (event) => {
+  if (!orbit || orbit.pointerId !== event.pointerId) return;
+  const moved = orbit.moved;
+  orbit = null;
+  if (plot.hasPointerCapture(event.pointerId)) plot.releasePointerCapture(event.pointerId);
+  if (moved || view !== "3d") return;
+  selectAt(clientToView(plot, event));
+});
+
+plot.addEventListener("pointercancel", (event) => {
+  if (orbit?.pointerId === event.pointerId) orbit = null;
+});
+
+render();
+
+function selectAt(point: { x: number; y: number }): void {
   const hit = hitMark(marks, point, HIT_RADIUS);
   if (hit?.nodeKind === "sound-portal" && hit.sourceId) {
     selected = { kind: "portal", id: hit.sourceId };
@@ -142,11 +199,10 @@ plot.addEventListener("pointerdown", (event) => {
     selected = null;
   }
   render();
-});
-
-render();
+}
 
 function place(item: LibraryItem, point: { x: number; y: number }): void {
+  if (view === "3d") return;
   const layer = project.listLayers(plotId, item.discipline).find((entry) => entry.name === "Основной");
   if (!layer) return;
   const transform = worldFromView(view, point, item.kind);
@@ -204,6 +260,7 @@ async function readUnderlay(file: File, targetVenue: string): Promise<void> {
 }
 
 function render(): void {
+  document.body.dataset.view = view;
   document.body.dataset.placing = armed ? "true" : "false";
   for (const button of document.querySelectorAll<HTMLButtonElement>("[data-discipline]")) {
     button.setAttribute("aria-pressed", String(button.dataset.discipline === discipline));
@@ -217,7 +274,9 @@ function render(): void {
   renderCard();
   hint.textContent = armed
     ? `Постановка: ${armed.label}. Клик по схеме.`
-    : "Выберите прибор и кликните по схеме.";
+    : view === "3d"
+      ? "Вращайте схему перетаскиванием. Клик выбирает прибор."
+      : "Выберите прибор и кликните по схеме.";
 }
 
 function renderLibrary(): void {
@@ -229,6 +288,7 @@ function renderLibrary(): void {
     const pressed = armed?.type === item.type && armed.kind === item.kind;
     button.setAttribute("aria-pressed", String(pressed));
     button.addEventListener("click", () => {
+      if (view === "3d") return;
       armed = pressed ? null : item;
       render();
     });
@@ -244,7 +304,12 @@ function renderUnderlay(): void {
 }
 
 function renderPlot(): void {
-  const projection = projectOrthographic(project.sceneGraph(venueId, plotId), view, { discipline });
+  const graph = project.sceneGraph(venueId, plotId);
+  const query = { discipline };
+  const projection =
+    view === "3d"
+      ? projectPerspective(graph, { ...DEFAULT_CAMERA, yaw, pitch }, query)
+      : projectOrthographic(graph, view, query);
   marks = projection.marks;
   const box = viewBoxOf(frameOf(marks));
   plot.setAttribute("viewBox", `${box.x} ${box.y} ${box.width} ${box.height}`);
