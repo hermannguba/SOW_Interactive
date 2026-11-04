@@ -74,6 +74,25 @@ input {
   cursor: pointer;
 }
 
+#import-dwg {
+  padding: 6px 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: white;
+  cursor: pointer;
+}
+
+.import {
+  display: grid;
+  gap: 4px;
+}
+
+#import-status,
+#underlay-status,
+#import-error {
+  margin: 0;
+}
+
 .switch button[aria-pressed="true"],
 .library button[aria-pressed="true"] {
   background: var(--ink);

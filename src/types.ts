@@ -88,11 +88,23 @@ export interface PlotSnapshot {
   readonly fixtures: readonly Fixture[];
 }
 
+/** Линия подложки в координатах зала: X — ширина, Y — глубина, Z — высота. */
+export interface UnderlayStroke {
+  readonly points: readonly Vec3[];
+}
+
+/** Чертёж DWG, привязанный к залу, а не к дате. */
+export interface VenueUnderlay {
+  readonly fileName: string;
+  readonly strokes: readonly UnderlayStroke[];
+}
+
 export interface VenueSnapshot {
   readonly id: string;
   readonly name: string;
   readonly geometry: readonly Geometry[];
   readonly portals: readonly SoundPortal[];
+  readonly underlay: VenueUnderlay | null;
   readonly plots: readonly PlotSnapshot[];
 }
 
@@ -166,6 +178,7 @@ export const SCENE_NODE_KINDS = [
   "venue",
   "plot",
   "geometry",
+  "underlay",
   "sound-portal",
   "light-fixture",
   "active-speaker",

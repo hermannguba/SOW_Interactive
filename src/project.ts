@@ -18,7 +18,9 @@ import type {
   SceneGraph,
   SoundPortal,
   Transform,
+  Vec3,
   VenueSnapshot,
+  VenueUnderlay,
 } from "./types.ts";
 import {
   addressKey,
@@ -29,6 +31,7 @@ import {
   copyAddress,
   copyShape,
   copyTransform,
+  copyVec3,
   isDiscipline,
 } from "./values.ts";
 
@@ -50,6 +53,7 @@ interface VenueRecord {
   geometryOrder: string[];
   portals: Map<string, SoundPortal>;
   portalOrder: string[];
+  underlay: VenueUnderlay | null;
   plots: Map<string, PlotRecord>;
   plotOrder: string[];
   dates: Map<string, string>;
@@ -124,6 +128,7 @@ export class Project {
       name: input.name,
       geometry: [],
       portals: [],
+      underlay: null,
       plots: [],
     });
     return id;
@@ -178,6 +183,15 @@ export class Project {
     venue.geometry.delete(geometryId);
     removeId(venue.geometryOrder, geometryId);
     this.taken.delete(geometryId);
+  }
+
+  setUnderlay(venueId: string, underlay: VenueUnderlay): void {
+    this.venueOrThrow(venueId).underlay = copyUnderlay(underlay);
+  }
+
+  underlay(venueId: string): VenueUnderlay | null {
+    const stored = this.venueOrThrow(venueId).underlay;
+    return stored ? copyUnderlay(stored) : null;
   }
 
   listGeometry(venueId: string): readonly Geometry[] {
@@ -449,6 +463,7 @@ export class Project {
       geometryOrder: [],
       portals: new Map(),
       portalOrder: [],
+      underlay: venue.underlay ? copyUnderlay(venue.underlay) : null,
       plots: new Map(),
       plotOrder: [],
       dates: new Map(),
@@ -612,6 +627,7 @@ export class Project {
       name: venue.name,
       geometry: this.listGeometry(venue.id),
       portals: this.listSoundPortals(venue.id),
+      underlay: venue.underlay ? copyUnderlay(venue.underlay) : null,
       plots: venue.plotOrder.map((plotId) => {
         const plot = this.plotOrThrow(plotId);
         return {
@@ -685,6 +701,35 @@ function copyGeometry(geometry: Geometry): Geometry {
     shape: copyShape(geometry.shape),
     transform: copyTransform(geometry.transform),
   };
+}
+
+function copyUnderlay(underlay: VenueUnderlay): VenueUnderlay {
+  const fileName = assertName(underlay.fileName);
+  if (!Array.isArray(underlay.strokes) || underlay.strokes.length === 0) {
+    throw new SceneError("invalid-shape", "У подложки нет линий");
+  }
+  return {
+    fileName,
+    strokes: underlay.strokes.map((stroke) => {
+      if (!Array.isArray(stroke.points) || stroke.points.length < 2) {
+        throw new SceneError("invalid-shape", "Линия подложки должна содержать хотя бы две точки");
+      }
+      return {
+        points: stroke.points.map((point: Vec3) => copyUnderlayPoint(point)),
+      };
+    }),
+  };
+}
+
+function copyUnderlayPoint(point: Vec3): Vec3 {
+  try {
+    return copyVec3(point);
+  } catch (error) {
+    if (error instanceof SceneError && error.code === "invalid-transform") {
+      throw new SceneError("invalid-shape", "Точка подложки задаётся конечными числами X, Y и Z");
+    }
+    throw error;
+  }
 }
 
 function copyPortal(portal: SoundPortal): SoundPortal {

@@ -9,7 +9,9 @@ import type {
   PlotSnapshot,
   ProjectSnapshot,
   SoundPortal,
+  UnderlayStroke,
   VenueSnapshot,
+  VenueUnderlay,
 } from "./types.ts";
 import { isDiscipline, isRecord } from "./values.ts";
 
@@ -75,6 +77,7 @@ function parseVenue(input: unknown, label: string): VenueSnapshot {
     portals: readArray(input, "portals", label).map((item, index) =>
       parsePortal(item, `${label}, портал ${index + 1}`),
     ),
+    underlay: parseUnderlay(input.underlay, `${label}, подложка`),
     plots: readArray(input, "plots", label).map((item, index) =>
       parsePlot(item, `${label}, плот ${index + 1}`),
     ),
@@ -118,6 +121,27 @@ function parsePortal(input: unknown, label: string): SoundPortal {
     name: readString(input, "name", label),
     type: readString(input, "type", label),
     transform: parseTransform(input.transform, label),
+  };
+}
+
+function parseUnderlay(input: unknown, label: string): VenueUnderlay | null {
+  if (input === undefined || input === null) return null;
+  if (!isRecord(input)) fail(`${label} должна быть объектом`);
+  const strokes = readArray(input, "strokes", label);
+  if (strokes.length === 0) fail(`${label}: нет линий`);
+  return {
+    fileName: readString(input, "fileName", label),
+    strokes: strokes.map((stroke, index) => parseStroke(stroke, `${label}, линия ${index + 1}`)),
+  };
+}
+
+function parseStroke(input: unknown, label: string): UnderlayStroke {
+  if (!isRecord(input)) fail(`${label} должна быть объектом`);
+  if (!Array.isArray(input.points) || input.points.length < 2) {
+    fail(`${label}: нужны хотя бы две точки`);
+  }
+  return {
+    points: input.points.map((point, index) => parseVec3(point, `${label}, точка ${index + 1}`)),
   };
 }
 

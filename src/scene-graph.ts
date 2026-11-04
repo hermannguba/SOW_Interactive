@@ -62,6 +62,9 @@ export function buildSceneGraph(
     childrenOf.set(fixture.parentId, siblings);
   }
 
+  const underlayIds = (venue.underlay?.strokes ?? []).map((_, index) =>
+    nodeId("underlay", `${venue.id}:${index}`),
+  );
   const geometryIds = venue.geometry.map((item) => nodeId("geometry", item.id));
   const portalIds = venue.portals.map((item) => nodeId("portal", item.id));
 
@@ -84,7 +87,7 @@ export function buildSceneGraph(
   nodes[venueNodeId] = freezeNode({
     id: venueNodeId,
     parentId: rootId,
-    childIds: [...geometryIds, ...portalIds],
+    childIds: [...underlayIds, ...geometryIds, ...portalIds],
     name: venue.name,
     transform: IDENTITY,
     permanence: "structure",
@@ -113,6 +116,11 @@ export function buildSceneGraph(
     sourceId: plot.id,
   });
 
+  venue.underlay?.strokes.forEach((stroke, index) => {
+    const id = underlayIds[index];
+    if (!id) return;
+    nodes[id] = underlayNode(venue.underlay?.fileName ?? "Подложка", stroke.points, id, venueNodeId);
+  });
   for (const geometry of venue.geometry) {
     const id = nodeId("geometry", geometry.id);
     nodes[id] = geometryNode(geometry, id, venueNodeId);
@@ -165,6 +173,29 @@ function assertAcyclic(plot: PlotSnapshot): void {
   };
 
   for (const fixture of plot.fixtures) visit(fixture.id);
+}
+
+function underlayNode(
+  name: string,
+  points: readonly { x: number; y: number; z: number }[],
+  id: string,
+  parentId: string,
+): SceneNode {
+  return freezeNode({
+    id,
+    parentId,
+    childIds: [],
+    name,
+    transform: IDENTITY,
+    permanence: "venue",
+    discipline: null,
+    layerId: null,
+    kind: "underlay",
+    catalogType: null,
+    address: null,
+    shape: { kind: "polyline", points },
+    sourceId: null,
+  });
 }
 
 function geometryNode(geometry: Geometry, id: string, parentId: string): SceneNode {
@@ -316,13 +347,13 @@ export function worldPosition(graph: SceneGraph, id: string): { x: number; y: nu
 }
 
 /**
- * Геометрия зала входит в любой фильтр.
+ * Геометрия и подложка зала входят в любой фильтр.
  * Портал виден без фильтра и в дисциплине «звук»: слоя у него нет.
  * Прибор плота виден, если дисциплина совпала и его слой выбран.
  */
 export function matchesSceneQuery(node: SceneNode, query: SceneQuery): boolean {
   const layers = normalizeQuery(query);
-  if (node.kind === "geometry") return true;
+  if (node.kind === "geometry" || node.kind === "underlay") return true;
   if (node.kind === "sound-portal") {
     return query.discipline === undefined || query.discipline === "sound";
   }

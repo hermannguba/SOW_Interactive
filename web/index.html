@@ -21,6 +21,12 @@
         <button type="button" data-view="top">Вид сверху</button>
         <button type="button" data-view="side">Вид сбоку</button>
       </div>
+      <div class="import">
+        <button type="button" id="import-dwg">Импорт DWG</button>
+        <input id="dwg-file" type="file" accept=".dwg,application/acad" hidden />
+        <p id="underlay-status"></p>
+        <p id="import-error" class="error" role="alert"></p>
+      </div>
     </header>
     <div class="workspace">
       <aside class="library">
