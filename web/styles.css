@@ -1,0 +1,159 @@
+:root {
+  color-scheme: light;
+  --ink: #1c1915;
+  --muted: #5e584e;
+  --paper: #f4f1ea;
+  --line: #d9d3c7;
+  --plot: #24211d;
+  --mark: #f2c14e;
+  --portal: #8fd0c6;
+  --selected: #7ec8ff;
+  --danger: #8a2b2b;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  height: 100vh;
+  display: grid;
+  grid-template-rows: auto 1fr;
+  color: var(--ink);
+  background: var(--paper);
+  font: 15px/1.4 "Segoe UI", "PT Sans", sans-serif;
+}
+
+header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 20px;
+  align-items: end;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--line);
+  background: #fffdf8;
+}
+
+label {
+  display: grid;
+  gap: 4px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+select,
+input,
+button {
+  font: inherit;
+  color: var(--ink);
+}
+
+select,
+input {
+  min-width: 9rem;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: white;
+}
+
+.switch {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: white;
+}
+
+.switch button,
+.library button {
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  padding: 6px 10px;
+  cursor: pointer;
+}
+
+.switch button[aria-pressed="true"],
+.library button[aria-pressed="true"] {
+  background: var(--ink);
+  color: var(--paper);
+}
+
+.workspace {
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr) 280px;
+  min-height: 0;
+}
+
+aside {
+  padding: 16px;
+  overflow: auto;
+  border-color: var(--line);
+  background: #fffdf8;
+}
+
+.library { border-right: 1px solid var(--line); }
+.card { border-left: 1px solid var(--line); }
+
+h2 {
+  margin: 0 0 12px;
+  font-size: 16px;
+}
+
+#library {
+  display: grid;
+  gap: 6px;
+}
+
+.library button {
+  text-align: left;
+  border: 1px solid var(--line);
+  background: white;
+}
+
+#hint,
+.note,
+.error {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.error { color: var(--danger); }
+
+main {
+  min-height: 0;
+  background: var(--plot);
+}
+
+#plot {
+  width: 100%;
+  height: 100%;
+  display: block;
+  touch-action: none;
+}
+
+body[data-placing="true"] #plot { cursor: crosshair; }
+
+.card-fields {
+  display: grid;
+  gap: 10px;
+}
+
+.card-fields label input,
+.card-fields label select {
+  width: 100%;
+}
+
+.address {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+@media (max-width: 800px) {
+  body { height: auto; min-height: 100vh; }
+  .workspace { grid-template-columns: 1fr; }
+  main { height: 62vh; }
+  .library, .card { border: 0; border-top: 1px solid var(--line); }
+}
