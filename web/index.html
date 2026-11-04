@@ -3,37 +3,47 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Схема зала</title>
+    <title>Схемы проката</title>
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%2324211d'/%3E%3C/svg%3E" />
     <link rel="stylesheet" href="./styles.css" />
   </head>
-  <body>
+  <body data-screen="home">
     <header>
-      <label>Проект <select id="project"></select></label>
-      <label>Зал <select id="venue"></select></label>
-      <label>Дата <select id="date"></select></label>
-      <div class="switch" role="group" aria-label="Дисциплина">
-        <button type="button" data-discipline="light">Свет</button>
-        <button type="button" data-discipline="sound">Звук</button>
-        <button type="button" data-discipline="video">Видео</button>
-      </div>
-      <div class="switch" role="group" aria-label="Вид">
-        <button type="button" data-view="top">Вид сверху</button>
-        <button type="button" data-view="side">Вид сбоку</button>
-        <button type="button" data-view="3d">3D</button>
-      </div>
-      <div class="import">
-        <div class="import-actions">
-          <button type="button" id="import-dwg">Импорт DWG</button>
-          <button type="button" id="import-mvr">Импорт MVR</button>
+      <nav aria-label="Навигация">
+        <button type="button" id="home-button">На главную</button>
+      </nav>
+      <div class="plot-tools">
+        <label>Проект <select id="project"></select></label>
+        <label>Зал <select id="venue"></select></label>
+        <label>Дата <select id="date"></select></label>
+        <div class="switch" role="group" aria-label="Дисциплина">
+          <button type="button" data-discipline="light">Свет</button>
+          <button type="button" data-discipline="sound">Звук</button>
+          <button type="button" data-discipline="video">Видео</button>
         </div>
-        <input id="dwg-file" type="file" accept=".dwg,application/acad" hidden />
-        <input id="mvr-file" type="file" accept=".mvr,application/zip" hidden />
-        <p id="underlay-status"></p>
-        <p id="mvr-status"></p>
-        <p id="import-error" class="error" role="alert"></p>
+        <div class="switch" role="group" aria-label="Вид">
+          <button type="button" data-view="top">Вид сверху</button>
+          <button type="button" data-view="side">Вид сбоку</button>
+          <button type="button" data-view="3d">3D</button>
+        </div>
+        <div class="import">
+          <div class="import-actions">
+            <button type="button" id="import-dwg">Импорт DWG</button>
+            <button type="button" id="import-mvr">Импорт MVR</button>
+          </div>
+          <input id="dwg-file" type="file" accept=".dwg,application/acad" hidden />
+          <input id="mvr-file" type="file" accept=".mvr,application/zip" hidden />
+          <p id="underlay-status"></p>
+          <p id="mvr-status"></p>
+          <p id="import-error" class="error" role="alert"></p>
+        </div>
       </div>
     </header>
+    <section id="home">
+      <h1>ТЗ</h1>
+      <p id="home-note"></p>
+      <div id="briefs"></div>
+    </section>
     <div class="workspace">
       <aside class="library">
         <h2>Библиотека</h2>

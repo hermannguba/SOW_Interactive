@@ -33,6 +33,33 @@ header {
   background: #fffdf8;
 }
 
+nav { display: flex; }
+
+#home-button {
+  padding: 6px 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: white;
+  cursor: pointer;
+}
+
+#home-button[aria-current="page"] {
+  background: var(--ink);
+  color: var(--paper);
+}
+
+.plot-tools {
+  display: flex;
+  flex: 1;
+  flex-wrap: wrap;
+  gap: 12px 20px;
+  align-items: end;
+}
+
+body[data-screen="home"] .plot-tools,
+body[data-screen="home"] .workspace,
+body[data-screen="plot"] #home { display: none; }
+
 label {
   display: grid;
   gap: 4px;
@@ -125,10 +152,43 @@ aside {
 .library { border-right: 1px solid var(--line); }
 .card { border-left: 1px solid var(--line); }
 
-h2 {
+h1, h2 {
   margin: 0 0 12px;
   font-size: 16px;
 }
+
+#home {
+  overflow: auto;
+  padding: 28px 32px;
+}
+
+#home-note {
+  margin: 0 0 16px;
+  color: var(--muted);
+}
+
+#briefs {
+  display: grid;
+  gap: 8px;
+  max-width: 760px;
+}
+
+.brief {
+  display: grid;
+  grid-template-columns: 11rem minmax(0, 1fr) auto;
+  gap: 16px;
+  align-items: center;
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: white;
+  text-align: left;
+  cursor: pointer;
+}
+
+.brief-date { font-weight: 600; }
+.brief-open { color: var(--muted); font-size: 13px; }
 
 #library {
   display: grid;
@@ -186,4 +246,5 @@ body[data-view="3d"] #plot { cursor: grab; }
   .workspace { grid-template-columns: 1fr; }
   main { height: 62vh; }
   .library, .card { border: 0; border-top: 1px solid var(--line); }
+  .brief { grid-template-columns: 1fr; gap: 4px; }
 }

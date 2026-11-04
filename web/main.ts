@@ -1,4 +1,5 @@
 import { DEFAULT_CAMERA, SceneError, importMvrLights, parseDwgUnderlay, projectOrthographic, projectPerspective, type Discipline, type Fixture, type OrthographicMark, type OrthographicView, type SoundPortal } from "../src/index.ts";
+import { formatEventDate, listBriefs } from "./briefs.ts";
 import { createDemo } from "./demo.ts";
 import { libraryFor, roleLabel, type LibraryItem } from "./library.ts";
 import {
@@ -16,6 +17,9 @@ const { project } = demo;
 
 type SceneView = OrthographicView | "3d";
 
+type Screen = "home" | "plot";
+
+let screen: Screen = "home";
 let venueId = demo.venueId;
 let plotId = demo.plotId;
 let discipline: Discipline = "light";
@@ -36,6 +40,9 @@ let mvrStatus = "";
 let selected: { kind: "fixture"; id: string } | { kind: "portal"; id: string } | null = null;
 let marks: readonly OrthographicMark[] = [];
 
+const homeButton = element<HTMLButtonElement>("home-button");
+const homeNote = element<HTMLElement>("home-note");
+const briefs = element<HTMLElement>("briefs");
 const projectSelect = element<HTMLSelectElement>("project");
 const venueSelect = element<HTMLSelectElement>("venue");
 const dateSelect = element<HTMLSelectElement>("date");
@@ -66,6 +73,21 @@ fillSelect(
   venueId,
 );
 fillDates();
+
+homeButton.addEventListener("click", () => {
+  if (screen === "home") return;
+  screen = "home";
+  armed = null;
+  render();
+});
+
+briefs.addEventListener("click", (event) => {
+  const row = event.target instanceof Element ? event.target.closest<HTMLButtonElement>(".brief") : null;
+  const nextVenue = row?.dataset.venue;
+  const nextPlot = row?.dataset.plot;
+  if (!row || !nextVenue || !nextPlot) return;
+  openPlot(nextVenue, nextPlot);
+});
 
 for (const button of document.querySelectorAll<HTMLButtonElement>("[data-discipline]")) {
   button.addEventListener("click", () => {
@@ -259,9 +281,26 @@ async function readUnderlay(file: File, targetVenue: string): Promise<void> {
   render();
 }
 
+function openPlot(nextVenue: string, nextPlot: string): void {
+  venueId = nextVenue;
+  plotId = nextPlot;
+  selected = null;
+  armed = null;
+  importError = "";
+  mvrStatus = "";
+  screen = "plot";
+  venueSelect.value = venueId;
+  fillDates();
+  render();
+}
+
 function render(): void {
+  document.body.dataset.screen = screen;
   document.body.dataset.view = view;
   document.body.dataset.placing = armed ? "true" : "false";
+  homeButton.setAttribute("aria-current", screen === "home" ? "page" : "false");
+  renderBriefs();
+  if (screen === "home") return;
   for (const button of document.querySelectorAll<HTMLButtonElement>("[data-discipline]")) {
     button.setAttribute("aria-pressed", String(button.dataset.discipline === discipline));
   }
@@ -277,6 +316,36 @@ function render(): void {
     : view === "3d"
       ? "Вращайте схему перетаскиванием. Клик выбирает прибор."
       : "Выберите прибор и кликните по схеме.";
+}
+
+function renderBriefs(): void {
+  homeNote.textContent = `Проект «${project.name}». Строка открывает плот зала на эту дату.`;
+  briefs.replaceChildren();
+  const rows = listBriefs(project);
+  if (rows.length === 0) {
+    const empty = document.createElement("p");
+    empty.className = "note";
+    empty.textContent = "Мероприятий пока нет.";
+    briefs.append(empty);
+    return;
+  }
+  for (const brief of rows) {
+    const row = document.createElement("button");
+    row.type = "button";
+    row.className = "brief";
+    row.dataset.venue = brief.venueId;
+    row.dataset.plot = brief.plotId;
+    const date = document.createElement("span");
+    date.className = "brief-date";
+    date.textContent = formatEventDate(brief.date);
+    const venue = document.createElement("span");
+    venue.textContent = brief.venueName;
+    const open = document.createElement("span");
+    open.className = "brief-open";
+    open.textContent = "Открыть плот";
+    row.append(date, venue, open);
+    briefs.append(row);
+  }
 }
 
 function renderLibrary(): void {
