@@ -418,6 +418,9 @@ describe("снимок", () => {
           parentId: null,
           transform: at(0, 0, 0),
           address: null,
+          catalogId: null,
+          mode: null,
+          extent: null,
         },
       ],
     });
@@ -438,6 +441,9 @@ describe("снимок", () => {
           parentId: null,
           transform: at(0, 0, 0),
           address: { universe: 1, address: 1 },
+          catalogId: null,
+          mode: null,
+          extent: null,
         },
       ],
     });
@@ -458,6 +464,9 @@ describe("снимок", () => {
           parentId: "fixture-b",
           transform: at(0, 0, 0),
           address: { universe: 1, address: 1 },
+          catalogId: null,
+          mode: null,
+          extent: null,
         },
         {
           id: "fixture-b",
@@ -469,6 +478,9 @@ describe("снимок", () => {
           parentId: "fixture-a",
           transform: at(1, 0, 0),
           address: { universe: 1, address: 2 },
+          catalogId: null,
+          mode: null,
+          extent: null,
         },
       ],
     });

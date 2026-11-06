@@ -1,9 +1,11 @@
-import { DEFAULT_CAMERA, SceneError, importMvrLights, parseDwgUnderlay, projectOrthographic, projectPerspective, type Discipline, type Fixture, type OrthographicMark, type OrthographicView, type SoundPortal } from "../src/index.ts";
+import { DEFAULT_CAMERA, SceneError, importMvrLights, parseDwgUnderlay, parseGdtf, projectOrthographic, projectPerspective, type Discipline, type Fixture, type OrthographicMark, type OrthographicView, type SoundPortal } from "../src/index.ts";
 import { formatEventDate, listBriefs } from "./briefs.ts";
+import { gdtfFixture, gdtfMode, installGdtf } from "./catalog.ts";
 import { createDemo } from "./demo.ts";
 import { libraryFor, roleLabel, type LibraryItem } from "./library.ts";
 import {
   HIT_RADIUS,
+  addressConflict,
   frameOf,
   hitMark,
   nextAddress,
@@ -209,7 +211,7 @@ plot.addEventListener("pointercancel", (event) => {
   if (orbit?.pointerId === event.pointerId) orbit = null;
 });
 
-render();
+void loadCatalog();
 
 function selectAt(point: { x: number; y: number }): void {
   const hit = hitMark(marks, point, HIT_RADIUS);
@@ -223,13 +225,28 @@ function selectAt(point: { x: number; y: number }): void {
   render();
 }
 
+async function loadCatalog(): Promise<void> {
+  try {
+    const url = new URL("./fixtures/LIGHT_SKY@AQUAPEARL-PRO@V1.4.gdtf", import.meta.url);
+    const response = await fetch(url);
+    if (!response.ok) throw new Error("Не удалось прочитать библиотеку GDTF");
+    installGdtf([
+      parseGdtf(new Uint8Array(await response.arrayBuffer()), "LIGHT_SKY@AQUAPEARL-PRO@V1.4.gdtf"),
+    ]);
+  } catch (caught) {
+    importError = messageOf(caught);
+  }
+  render();
+}
+
 function place(item: LibraryItem, point: { x: number; y: number }): void {
   if (view === "3d") return;
   const layer = project.listLayers(plotId, item.discipline).find((entry) => entry.name === "Основной");
   if (!layer) return;
   const transform = worldFromView(view, point, item.kind);
+  const fromCatalog = item.discipline === "light" && item.catalogId !== null;
   const base = {
-    name: item.label,
+    name: fromCatalog ? item.shortName || item.type : item.label,
     type: item.type,
     layerId: layer.id,
     transform,
@@ -240,7 +257,13 @@ function place(item: LibraryItem, point: { x: number; y: number }): void {
           ...base,
           discipline: "light",
           kind: "light-fixture",
-          address: nextAddress(project.listFixtures(plotId, { discipline: "light" })),
+          address: nextAddress(project.listFixtures(plotId, { discipline: "light" }), {
+            footprintOf: slotLength,
+            needed: fromCatalog ? item.footprint : 1,
+          }),
+          catalogId: fromCatalog ? item.catalogId : null,
+          mode: fromCatalog ? item.mode : null,
+          extent: fromCatalog ? (gdtfFixture(item.catalogId)?.extent ?? null) : null,
         })
       : item.discipline === "sound"
         ? project.addFixture(plotId, {
@@ -350,11 +373,21 @@ function renderBriefs(): void {
 
 function renderLibrary(): void {
   library.replaceChildren();
+  let heading = "";
   for (const item of libraryFor(discipline)) {
+    if (item.discipline === "light" && item.catalogId) {
+      const title = `${item.manufacturer} ${item.type}`;
+      if (title !== heading) {
+        const head = document.createElement("h3");
+        head.textContent = title;
+        library.append(head);
+        heading = title;
+      }
+    }
     const button = document.createElement("button");
     button.type = "button";
     button.textContent = item.label;
-    const pressed = armed?.type === item.type && armed.kind === item.kind;
+    const pressed = armed !== null && sameItem(armed, item);
     button.setAttribute("aria-pressed", String(pressed));
     button.addEventListener("click", () => {
       if (view === "3d") return;
@@ -389,7 +422,21 @@ function renderPlot(): void {
   }
 }
 
+function sameItem(left: LibraryItem, right: LibraryItem): boolean {
+  if (left.discipline !== right.discipline || left.kind !== right.kind || left.type !== right.type) return false;
+  if (left.discipline !== "light" || right.discipline !== "light") return true;
+  return left.catalogId === right.catalogId && left.mode === right.mode;
+}
+
+function slotLength(fixture: Fixture): number | null {
+  if (!fixture.catalogId || !fixture.mode) return 1;
+  const mode = gdtfMode(fixture.catalogId, fixture.mode);
+  if (!mode || mode.footprint === null) return null;
+  return mode.footprint;
+}
+
 function drawOutline(mark: OrthographicMark): SVGElement {
+  if (mark.nodeKind === "light-fixture") return drawFixtureBody(mark);
   const shape = mark.shape;
   if (shape.kind === "point") throw new Error("контур не точка");
   const element = svg(shape.kind === "polygon" ? "polygon" : "polyline");
@@ -401,6 +448,41 @@ function drawOutline(mark: OrthographicMark): SVGElement {
   element.setAttribute("stroke", underlay ? "#9aa7b8" : "#c8c2b4");
   element.setAttribute("stroke-width", underlay ? "0.06" : "0.08");
   return element;
+}
+
+function drawFixtureBody(mark: OrthographicMark): SVGElement {
+  const shape = mark.shape;
+  if (shape.kind === "point") return drawPoint(mark);
+  const group = svg("g");
+  const selectedMark = mark.sourceId !== null && selected?.id === mark.sourceId;
+  group.setAttribute("class", "fixture");
+  if (selectedMark) group.setAttribute("data-selected", "true");
+  if (mark.sourceId) group.setAttribute("data-source", mark.sourceId);
+  group.setAttribute("data-kind", mark.nodeKind);
+  const element = svg(shape.kind === "polygon" ? "polygon" : "polyline");
+  element.setAttribute("points", shape.points.map((point) => `${point.x},${point.y}`).join(" "));
+  element.setAttribute("fill", "rgba(242,193,78,0.35)");
+  element.setAttribute("stroke", selectedMark ? "#7ec8ff" : "#f2c14e");
+  element.setAttribute("stroke-width", selectedMark ? "0.08" : "0.04");
+  group.append(element);
+  const anchor = shape.points[0];
+  if (!anchor) return group;
+  const labelX = shape.points.reduce((sum, point) => sum + point.x, 0) / shape.points.length;
+  const labelY = shape.points.reduce((sum, point) => sum + point.y, 0) / shape.points.length;
+  const label = svg("text");
+  label.textContent = pointLabel(mark);
+  label.setAttribute("x", String(labelX));
+  label.setAttribute("y", String(labelY));
+  label.setAttribute(
+    "transform",
+    `translate(${labelX} ${labelY}) scale(1,-1) translate(${-labelX} ${-labelY})`,
+  );
+  label.setAttribute("fill", "#f4f1ea");
+  label.setAttribute("font-size", "0.45");
+  label.setAttribute("text-anchor", "middle");
+  label.setAttribute("dominant-baseline", "middle");
+  group.append(label);
+  return group;
 }
 
 function drawPoint(mark: OrthographicMark): SVGElement {
@@ -554,6 +636,64 @@ function fixtureCard(fixture: Fixture): HTMLElement {
   });
   layerLabel.append(layerSelect);
   fields.append(role, type.label, layerLabel);
+  if (fixture.catalogId && fixture.mode) {
+    const catalog = gdtfFixture(fixture.catalogId);
+    const modeLabel = document.createElement("label");
+    modeLabel.textContent = "Режим ";
+    const modeSelect = document.createElement("select");
+    for (const mode of catalog?.modes ?? []) {
+      const option = document.createElement("option");
+      option.value = mode.name;
+      option.textContent =
+        mode.footprint === null ? `${mode.name} · пиксели не развёрнуты` : `${mode.name} · ${mode.footprint}`;
+      modeSelect.append(option);
+    }
+    if (![...modeSelect.options].some((option) => option.value === fixture.mode)) {
+      const option = document.createElement("option");
+      option.value = fixture.mode;
+      option.textContent = fixture.mode;
+      modeSelect.append(option);
+    }
+    modeSelect.value = fixture.mode;
+    modeSelect.addEventListener("change", () => {
+      const next = gdtfMode(fixture.catalogId ?? "", modeSelect.value);
+      const conflict =
+        fixture.address === null
+          ? null
+          : addressConflict(
+              project.listFixtures(plotId, { discipline: "light" }),
+              fixture.address,
+              next?.footprint ?? null,
+              slotLength,
+              fixture.id,
+            );
+      if (conflict) {
+        error.textContent = conflict;
+        modeSelect.value = project.fixture(plotId, fixture.id).mode ?? fixture.mode ?? "";
+        return;
+      }
+      project.setFixtureMode(plotId, fixture.id, modeSelect.value);
+      error.textContent = "";
+      render();
+    });
+    modeLabel.append(modeSelect);
+    const footprint = document.createElement("p");
+    footprint.className = "note";
+    const current = catalog?.modes.find((mode) => mode.name === fixture.mode);
+    footprint.textContent = footprintText(fixture, current?.footprint ?? null);
+    fields.append(modeLabel, footprint);
+    if (current && current.channels.length > 0) {
+      const list = document.createElement("ol");
+      list.className = "channels";
+      for (const channel of current.channels) {
+        const row = document.createElement("li");
+        const slots = channel.slots.join("+");
+        row.textContent = `${channel.pretty} ${slots}${channel.geometry ? ` · ${channel.geometry}` : ""}`;
+        list.append(row);
+      }
+      fields.append(list);
+    }
+  }
   if (fixture.discipline === "light" && fixture.address) {
     const address = fixture.address;
     const row = document.createElement("div");
@@ -566,12 +706,30 @@ function fixtureCard(fixture: Fixture): HTMLElement {
     channel.input.min = "1";
     channel.input.max = "512";
     const commit = (): void => {
+      const next = {
+        universe: Number(universe.input.value),
+        address: Number(channel.input.value),
+      };
+      const conflict = addressConflict(
+        project.listFixtures(plotId, { discipline: "light" }),
+        next,
+        slotLength(fixture),
+        slotLength,
+        fixture.id,
+      );
+      if (conflict) {
+        error.textContent = conflict;
+        const current = project.fixture(plotId, fixture.id).address;
+        if (current) {
+          universe.input.value = String(current.universe);
+          channel.input.value = String(current.address);
+        }
+        return;
+      }
       try {
-        project.setLightAddress(plotId, fixture.id, {
-          universe: Number(universe.input.value),
-          address: Number(channel.input.value),
-        });
+        project.setLightAddress(plotId, fixture.id, next);
         error.textContent = "";
+        render();
       } catch (caught) {
         error.textContent = messageOf(caught);
         const current = project.fixture(plotId, fixture.id).address;
@@ -588,6 +746,15 @@ function fixtureCard(fixture: Fixture): HTMLElement {
   }
   fields.append(error);
   return fields;
+}
+
+function footprintText(fixture: Fixture, footprint: number | null): string {
+  if (footprint === null) return "Футпринт не посчитан: пиксели режима не развёрнуты.";
+  const address = fixture.address;
+  if (!address) return `Футпринт ${footprint}.`;
+  const end = address.address + footprint - 1;
+  if (end > 512) return `Футпринт ${footprint}, с адреса ${address.universe}.${address.address} в юниверс не входит.`;
+  return `Футпринт ${footprint}: ${address.universe}.${address.address}–${address.universe}.${end}.`;
 }
 
 function fillDates(): void {

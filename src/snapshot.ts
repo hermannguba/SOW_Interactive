@@ -182,6 +182,27 @@ function parseFixture(input: unknown, label: string): Fixture {
     parentId: readNullableString(input, "parentId", label),
     transform: parseTransform(input.transform, label),
     address: parseAddress(input.address, label),
+    catalogId: readOptionalString(input, "catalogId", label),
+    mode: readOptionalString(input, "mode", label),
+    extent: parseExtent(input.extent, label),
+  };
+}
+
+function readOptionalString(
+  source: Record<string, unknown>,
+  key: string,
+  label: string,
+): string | null {
+  if (!(key in source) || source[key] === null) return null;
+  return readString(source, key, label);
+}
+
+function parseExtent(input: unknown, label: string): Fixture["extent"] {
+  if (input === undefined || input === null) return null;
+  if (!isRecord(input)) fail(`${label}: габарит должен быть объектом или null`);
+  return {
+    min: parseVec3(input.min, `${label}: минимум габарита`),
+    max: parseVec3(input.max, `${label}: максимум габарита`),
   };
 }
 

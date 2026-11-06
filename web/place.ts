@@ -38,17 +38,68 @@ export function worldFromView(
   return { position, rotation: { x: 0, y: 0, z: 0 } };
 }
 
-export function nextAddress(fixtures: readonly Fixture[]): DmxAddress {
-  const used = new Set<string>();
-  for (const fixture of fixtures) {
-    if (fixture.address) used.add(`${fixture.address.universe}:${fixture.address.address}`);
-  }
+export interface AddressPlan {
+  /** Сколько слотов занимает уже стоящий прибор. null — только стартовый адрес. */
+  readonly footprintOf?: (fixture: Fixture) => number | null;
+  /** Сколько слотов нужно новому адресу. null — один стартовый. */
+  readonly needed?: number | null;
+}
+
+/** Первая свободная пара, в которую помещается весь футпринт и которая не пересекает чужой диапазон. */
+export function nextAddress(fixtures: readonly Fixture[], plan: AddressPlan = {}): DmxAddress {
+  const needed = lengthOf(plan.needed);
+  const footprintOf = plan.footprintOf ?? (() => 1);
   for (let universe = 1; universe <= 64; universe += 1) {
     for (let address = 1; address <= 512; address += 1) {
-      if (!used.has(`${universe}:${address}`)) return { universe, address };
+      const candidate = { universe, address };
+      if (addressConflict(fixtures, candidate, needed, footprintOf) === null) return candidate;
     }
   }
   throw new SceneError("invalid-address", "Свободный адрес DMX не найден");
+}
+
+/**
+ * Пустая строка — адрес можно занять.
+ * Неразвёрнутый режим передаётся как needed null и проверяется только в стартовом слоте.
+ */
+export function addressConflict(
+  fixtures: readonly Fixture[],
+  address: DmxAddress,
+  needed: number | null,
+  footprintOf: (fixture: Fixture) => number | null,
+  ignoreId?: string,
+): string | null {
+  const length = lengthOf(needed);
+  if (!Number.isInteger(address.universe) || address.universe < 1) {
+    return "Юниверс должен быть целым числом от 1";
+  }
+  if (!Number.isInteger(address.address) || address.address < 1 || address.address > 512) {
+    return "Адрес должен быть целым числом от 1 до 512";
+  }
+  if (address.address + length - 1 > 512) {
+    return `Режим занимает ${length} адресов и не помещается в юниверс с адреса ${address.address}`;
+  }
+  const from = address.address;
+  const to = from + length - 1;
+  for (const fixture of fixtures) {
+    if (fixture.id === ignoreId || !fixture.address) continue;
+    if (fixture.address.universe !== address.universe) continue;
+    const otherLength = lengthOf(footprintOf(fixture));
+    const otherFrom = fixture.address.address;
+    const otherTo = Math.min(512, otherFrom + otherLength - 1);
+    if (from <= otherTo && otherFrom <= to) {
+      return length === 1 && otherLength === 1
+        ? `Адрес ${address.universe}.${address.address} уже занят`
+        : `Адреса ${address.universe}.${from}–${address.universe}.${to} пересекают прибор «${fixture.name}»`;
+    }
+  }
+  return null;
+}
+
+function lengthOf(footprint: number | null | undefined): number {
+  if (footprint == null) return 1;
+  if (!Number.isInteger(footprint) || footprint < 1) return 1;
+  return footprint;
 }
 
 export function frameOf(marks: readonly OrthographicMark[], padding = 2): ViewFrame {
@@ -97,6 +148,18 @@ export function hitMark(
   point: ViewPoint,
   radius = HIT_RADIUS,
 ): OrthographicMark | null {
+  let body: OrthographicMark | null = null;
+  let bodyArea = Number.POSITIVE_INFINITY;
+  for (const mark of marks) {
+    if (mark.nodeKind !== "light-fixture" || mark.shape.kind !== "polygon") continue;
+    if (!contains(mark.shape.points, point)) continue;
+    const area = Math.abs(polygonArea(mark.shape.points));
+    if (area < bodyArea) {
+      body = mark;
+      bodyArea = area;
+    }
+  }
+  if (body) return body;
   let best: OrthographicMark | null = null;
   let bestDistance = radius;
   for (const mark of marks) {
@@ -108,6 +171,31 @@ export function hitMark(
     }
   }
   return best;
+}
+
+function contains(points: readonly ViewPoint[], point: ViewPoint): boolean {
+  let inside = false;
+  for (let index = 0, previous = points.length - 1; index < points.length; previous = index, index += 1) {
+    const current = points[index];
+    const prior = points[previous];
+    if (!current || !prior) continue;
+    const crosses = current.y > point.y !== prior.y > point.y;
+    if (!crosses) continue;
+    const x = ((prior.x - current.x) * (point.y - current.y)) / (prior.y - current.y) + current.x;
+    if (point.x < x) inside = !inside;
+  }
+  return inside;
+}
+
+function polygonArea(points: readonly ViewPoint[]): number {
+  let area = 0;
+  for (let index = 0, previous = points.length - 1; index < points.length; previous = index, index += 1) {
+    const current = points[index];
+    const prior = points[previous];
+    if (!current || !prior) continue;
+    area += prior.x * current.y - current.x * prior.y;
+  }
+  return area / 2;
 }
 
 function pointsOf(marks: readonly OrthographicMark[]): ViewPoint[] {
