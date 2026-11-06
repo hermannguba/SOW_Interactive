@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import { zipSync } from "fflate";
 import { SceneError, parseGdtf, projectOrthographic } from "../src/index.ts";
-import { installGdtf } from "../web/catalog.ts";
+import { addGdtf, gdtfFixture, gdtfLibrary, installGdtf } from "../web/catalog.ts";
 import { createDemo } from "../web/demo.ts";
 import { libraryFor } from "../web/library.ts";
 import { addressConflict, hitMark, nextAddress } from "../web/place.ts";
@@ -188,6 +188,29 @@ test("прибор из библиотеки рисуется габаритом
     universe: 1,
     address: 17,
   });
+  installGdtf([]);
+});
+
+test("повторный GDTF с тем же типом заменяет запись библиотеки", () => {
+  installGdtf([]);
+  const first = parseGdtf(
+    gdtf(`
+      <GDTF DataVersion="1.2">
+        <FixtureType Name="Old" Manufacturer="Test" FixtureTypeID="SAME" ShortName="OLD">
+          <DMXModes><DMXMode Name="1CH" Geometry="Base"><DMXChannels>
+            <DMXChannel DMXBreak="1" Offset="1" Geometry="Base">
+              <LogicalChannel Attribute="Dimmer"><ChannelFunction Attribute="Dimmer"/></LogicalChannel>
+            </DMXChannel>
+          </DMXChannels></DMXMode></DMXModes>
+        </FixtureType>
+      </GDTF>`),
+    "old.gdtf",
+  );
+  addGdtf(first);
+  addGdtf({ ...first, name: "New", spec: "new.gdtf" });
+  assert.equal(gdtfLibrary().length, 1);
+  assert.equal(gdtfFixture("SAME")?.name, "New");
+  assert.equal(gdtfFixture("SAME")?.spec, "new.gdtf");
   installGdtf([]);
 });
 

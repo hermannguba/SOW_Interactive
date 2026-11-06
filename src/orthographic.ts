@@ -50,6 +50,8 @@ export interface OrthographicMark {
   readonly layerId: string | null;
   readonly permanence: Permanence;
   readonly shape: ViewShape;
+  /** Рёбра корпуса в виде 3D. Вид сверху и сбоку их не задают. */
+  readonly edges?: readonly (readonly ViewPoint[])[];
 }
 
 export interface OrthographicProjection {

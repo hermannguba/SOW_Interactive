@@ -201,6 +201,22 @@ h1, h2 {
   font-weight: 650;
 }
 
+#gdtf-import {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+#gdtf-import[hidden] { display: none; }
+
+#gdtf-status { margin: 0; }
+
+#gdtf-import button {
+  text-align: left;
+  border: 1px solid var(--line);
+  background: white;
+}
+
 .channels {
   list-style: none;
   margin: 0;
@@ -242,6 +258,25 @@ main {
 
 body[data-placing="true"] #plot { cursor: crosshair; }
 body[data-view="3d"] #plot { cursor: grab; }
+
+.plan-grid {
+  fill: none;
+  stroke: #8d877c;
+  stroke-width: 0.015;
+}
+
+.plan-axis-x { fill: none; stroke: #e7a08a; stroke-width: 0.045; }
+.plan-axis-y { fill: none; stroke: #8fd0c6; stroke-width: 0.045; }
+.plan-axis-z { fill: none; stroke: #f4f1ea; stroke-width: 0.045; }
+
+.plan-origin circle { fill: #f4f1ea; }
+
+.plan-label {
+  fill: #f4f1ea;
+  font-size: 0.42;
+  text-anchor: middle;
+  dominant-baseline: middle;
+}
 
 .card-fields {
   display: grid;

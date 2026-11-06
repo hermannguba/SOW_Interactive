@@ -1,6 +1,6 @@
-import { DEFAULT_CAMERA, SceneError, importMvrLights, parseDwgUnderlay, parseGdtf, projectOrthographic, projectPerspective, type Discipline, type Fixture, type OrthographicMark, type OrthographicView, type SoundPortal } from "../src/index.ts";
+import { DEFAULT_CAMERA, SceneError, importMvrLights, parseDwgUnderlay, parseGdtf, projectOrthographic, projectPerspective, type Discipline, type Fixture, type OrthographicMark, type OrthographicView, type PlanOverlay, type SoundPortal } from "../src/index.ts";
 import { formatEventDate, listBriefs } from "./briefs.ts";
-import { gdtfFixture, gdtfMode, installGdtf } from "./catalog.ts";
+import { addGdtf, gdtfFixture, gdtfMode } from "./catalog.ts";
 import { createDemo } from "./demo.ts";
 import { libraryFor, roleLabel, type LibraryItem } from "./library.ts";
 import {
@@ -59,6 +59,10 @@ const mvrFile = element<HTMLInputElement>("mvr-file");
 const underlayStatus = element<HTMLElement>("underlay-status");
 const mvrStatusNode = element<HTMLElement>("mvr-status");
 const importAlert = element<HTMLElement>("import-error");
+const gdtfImport = element<HTMLElement>("gdtf-import");
+const gdtfButton = element<HTMLButtonElement>("import-gdtf");
+const gdtfFile = element<HTMLInputElement>("gdtf-file");
+const gdtfStatus = element<HTMLElement>("gdtf-status");
 
 const world = document.createElementNS("http://www.w3.org/2000/svg", "g");
 world.setAttribute("transform", "scale(1,-1)");
@@ -165,6 +169,17 @@ mvrFile.addEventListener("change", () => {
   void readMvr(file, targetPlot);
 });
 
+gdtfButton.addEventListener("click", () => {
+  gdtfFile.click();
+});
+
+gdtfFile.addEventListener("change", () => {
+  const file = gdtfFile.files?.[0];
+  gdtfFile.value = "";
+  if (!file) return;
+  void readGdtf(file);
+});
+
 plot.addEventListener("pointerdown", (event) => {
   event.preventDefault();
   if (view === "3d") {
@@ -230,9 +245,7 @@ async function loadCatalog(): Promise<void> {
     const url = new URL("./fixtures/LIGHT_SKY@AQUAPEARL-PRO@V1.4.gdtf", import.meta.url);
     const response = await fetch(url);
     if (!response.ok) throw new Error("Не удалось прочитать библиотеку GDTF");
-    installGdtf([
-      parseGdtf(new Uint8Array(await response.arrayBuffer()), "LIGHT_SKY@AQUAPEARL-PRO@V1.4.gdtf"),
-    ]);
+    addGdtf(parseGdtf(new Uint8Array(await response.arrayBuffer()), "LIGHT_SKY@AQUAPEARL-PRO@V1.4.gdtf"));
   } catch (caught) {
     importError = messageOf(caught);
   }
@@ -277,6 +290,24 @@ function place(item: LibraryItem, point: { x: number; y: number }): void {
             kind: item.kind,
           });
   selected = { kind: "fixture", id };
+  render();
+}
+
+async function readGdtf(file: File): Promise<void> {
+  try {
+    const fixture = parseGdtf(new Uint8Array(await file.arrayBuffer()), file.name);
+    const known = gdtfFixture(fixture.fixtureTypeId) !== null;
+    addGdtf(fixture);
+    gdtfStatus.classList.remove("error");
+    gdtfStatus.textContent = known
+      ? `${fixture.manufacturer} ${fixture.name} обновлён в библиотеке`
+      : `${fixture.manufacturer} ${fixture.name} добавлен в библиотеку`;
+    discipline = "light";
+    importError = "";
+  } catch (caught) {
+    gdtfStatus.classList.add("error");
+    gdtfStatus.textContent = messageOf(caught);
+  }
   render();
 }
 
@@ -332,12 +363,13 @@ function render(): void {
   }
   renderLibrary();
   renderUnderlay();
-  renderPlot();
+  const planStep = renderPlot();
   renderCard();
+  gdtfImport.hidden = discipline !== "light";
   hint.textContent = armed
     ? `Постановка: ${armed.label}. Клик по схеме.`
     : view === "3d"
-      ? "Вращайте схему перетаскиванием. Клик выбирает прибор."
+      ? `Вращайте схему перетаскиванием. Клик выбирает прибор. Сетка — ${planStep} м от нуля.`
       : "Выберите прибор и кликните по схеме.";
 }
 
@@ -405,7 +437,7 @@ function renderUnderlay(): void {
   importAlert.textContent = importError;
 }
 
-function renderPlot(): void {
+function renderPlot(): number {
   const graph = project.sceneGraph(venueId, plotId);
   const query = { discipline };
   const projection =
@@ -413,13 +445,63 @@ function renderPlot(): void {
       ? projectPerspective(graph, { ...DEFAULT_CAMERA, yaw, pitch }, query)
       : projectOrthographic(graph, view, query);
   marks = projection.marks;
-  const box = viewBoxOf(frameOf(marks));
+  const plan = projection.view === "3d" ? projection.plan : null;
+  const box = viewBoxOf(frameOf(marks, 2, plan ? planPoints(plan) : []));
   plot.setAttribute("viewBox", `${box.x} ${box.y} ${box.width} ${box.height}`);
   world.replaceChildren();
+  if (plan) world.append(drawPlan(plan));
   for (const mark of marks) {
     if (mark.shape.kind === "point") world.append(drawPoint(mark));
     else world.append(drawOutline(mark));
   }
+  return plan?.step ?? 1;
+}
+
+function planPoints(plan: PlanOverlay): { x: number; y: number }[] {
+  const points = plan.lines.flatMap((line) => [...line.points]);
+  for (const label of plan.labels) points.push(label.at);
+  return points;
+}
+
+function drawPlan(plan: PlanOverlay): SVGElement {
+  const group = svg("g");
+  group.setAttribute("class", "plan");
+  for (const line of plan.lines) {
+    const element = svg("polyline");
+    element.setAttribute("points", line.points.map((point) => `${point.x},${point.y}`).join(" "));
+    element.setAttribute("class", `plan-${line.role}`);
+    group.append(element);
+  }
+  const origin = plan.labels.find((label) => label.text === "0");
+  if (origin) {
+    const mark = svg("g");
+    mark.setAttribute("class", "plan-origin");
+    const title = svg("title");
+    title.textContent = "Нулевая точка";
+    const circle = svg("circle");
+    circle.setAttribute("cx", String(origin.at.x - 0.28));
+    circle.setAttribute("cy", String(origin.at.y - 0.28));
+    circle.setAttribute("r", "0.12");
+    mark.append(title, circle);
+    group.append(mark);
+  }
+  for (const label of plan.labels) {
+    const text = svg("text");
+    text.textContent = label.text;
+    text.setAttribute("x", String(label.at.x));
+    text.setAttribute("y", String(label.at.y));
+    text.setAttribute(
+      "transform",
+      `translate(${label.at.x} ${label.at.y}) scale(1,-1) translate(${-label.at.x} ${-label.at.y})`,
+    );
+    text.setAttribute("class", "plan-label");
+    const title = svg("title");
+    title.textContent =
+      label.text === "0" ? "Нулевая точка" : label.text === "X" ? "Ширина" : label.text === "Y" ? "Глубина" : "Высота";
+    text.append(title);
+    group.append(text);
+  }
+  return group;
 }
 
 function sameItem(left: LibraryItem, right: LibraryItem): boolean {
@@ -465,6 +547,14 @@ function drawFixtureBody(mark: OrthographicMark): SVGElement {
   element.setAttribute("stroke", selectedMark ? "#7ec8ff" : "#f2c14e");
   element.setAttribute("stroke-width", selectedMark ? "0.08" : "0.04");
   group.append(element);
+  for (const edge of mark.edges ?? []) {
+    const wire = svg("polyline");
+    wire.setAttribute("points", edge.map((point) => `${point.x},${point.y}`).join(" "));
+    wire.setAttribute("fill", "none");
+    wire.setAttribute("stroke", selectedMark ? "#7ec8ff" : "#f6d98a");
+    wire.setAttribute("stroke-width", "0.03");
+    group.append(wire);
+  }
   const anchor = shape.points[0];
   if (!anchor) return group;
   const labelX = shape.points.reduce((sum, point) => sum + point.x, 0) / shape.points.length;
