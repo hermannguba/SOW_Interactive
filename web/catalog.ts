@@ -6,6 +6,11 @@ export function installGdtf(next: readonly GdtfFixture[]): void {
   fixtures = next;
 }
 
+/** Добавляет тип в библиотеку. Тот же FixtureTypeID заменяет прежнюю запись. */
+export function addGdtf(fixture: GdtfFixture): void {
+  fixtures = [...fixtures.filter((item) => item.fixtureTypeId !== fixture.fixtureTypeId), fixture];
+}
+
 export function gdtfLibrary(): readonly GdtfFixture[] {
   return fixtures;
 }

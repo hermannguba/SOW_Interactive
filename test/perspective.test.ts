@@ -177,5 +177,55 @@ describe("вид 3D", () => {
     assert.ok(portal);
     assert.equal(portal.nodeKind, "sound-portal");
     assert.equal(pointOf(portal).x !== 0 || pointOf(portal).y !== 0, true);
+    assert.equal(light.plan.step, sound.plan.step);
+    assert.equal(light.plan.lines.length, sound.plan.lines.length);
+  });
+
+  test("план строится от нуля, корпус прибора — габарит", () => {
+    const hall = rig();
+    const extent = {
+      min: { x: -0.2, y: -0.15, z: -0.4 },
+      max: { x: 0.2, y: 0.15, z: 0.08 },
+    };
+    const bodyId = hall.project.addFixture(hall.plotId, {
+      name: "Корпус",
+      type: "AQUAPEARL-PRO",
+      discipline: "light",
+      kind: "light-fixture",
+      layerId: hall.front,
+      transform: at(2, 3, 5),
+      address: { universe: 1, address: 20 },
+      catalogId: "ID",
+      mode: "16CH",
+      extent,
+    });
+    const graph = hall.project.sceneGraph(hall.venueId, hall.plotId);
+    const view = projectPerspective(graph, DEFAULT_CAMERA, { discipline: "light" });
+    assert.equal(view.plan.step, 1);
+    assert.equal(view.plan.labels.map((label) => label.text).join(" "), "0 X Y Z");
+    const axes = view.plan.lines.filter((line) => line.role.startsWith("axis-"));
+    assert.deepEqual(
+      axes.map((line) => line.role),
+      ["axis-x", "axis-y", "axis-z"],
+    );
+    for (const axis of axes) {
+      assert.equal(axis.points.length, 2);
+      const [start, end] = axis.points;
+      assert.ok(start && end);
+      assert.ok(Math.hypot(end.x - start.x, end.y - start.y) > 0.2);
+    }
+    const zero = view.plan.labels[0];
+    const width = view.plan.labels.find((label) => label.text === "X");
+    assert.ok(zero && width);
+    assert.ok(Math.hypot(width.at.x - zero.at.x, width.at.y - zero.at.y) > 0.2);
+    assert.ok(view.plan.lines.filter((line) => line.role === "grid").length >= 8);
+
+    const plain = view.marks.find((mark) => mark.sourceId === hall.low);
+    const body = view.marks.find((mark) => mark.sourceId === bodyId);
+    assert.equal(plain?.shape.kind, "point");
+    assert.equal(plain?.edges, undefined);
+    assert.equal(body?.shape.kind, "polygon");
+    assert.equal(body?.edges?.length, 12);
+    assert.equal(JSON.stringify(hall.project.toSnapshot()).includes("\"edges\""), false);
   });
 });

@@ -102,8 +102,12 @@ function lengthOf(footprint: number | null | undefined): number {
   return footprint;
 }
 
-export function frameOf(marks: readonly OrthographicMark[], padding = 2): ViewFrame {
-  const points = pointsOf(marks);
+export function frameOf(
+  marks: readonly OrthographicMark[],
+  padding = 2,
+  extra: readonly ViewPoint[] = [],
+): ViewFrame {
+  const points = [...pointsOf(marks), ...extra];
   if (points.length === 0) {
     return { minX: -10, minY: -10, width: 20, height: 20 };
   }
